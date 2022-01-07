@@ -41,6 +41,15 @@ contract Lynkey is ERC20Burnable, Pausable, Ownable {
 	    address _teamWallet,
 	    address _partnerWallet) ERC20("Lynkey", "LYNK") {  
 	        
+        require(
+            _crowdsaleWallet != address(0) && 
+            _ecosystemWallet != address(0) &&
+            _stakingRewardWallet != address(0) &&
+            _reserveLiquidityWallet != address(0) &&
+            _teamWallet != address(0) &&
+            _partnerWallet != address(0)
+        );
+
 	    _mint(owner(), totalSupplyAtBirth * 10 ** uint256(decimals())); 
        
         crowdsaleWallet = _crowdsaleWallet;
@@ -64,7 +73,7 @@ contract Lynkey is ERC20Burnable, Pausable, Ownable {
     function transferAndLockLinearly(address _wallet, uint256 _amountSum, uint256 _startTime, uint8 _forHowManyPeriods, uint256 _periodInSeconds) public {
         require(isAdminWallet(msg.sender), "No permission to transfer and lock. Sender must be an Admin address");
         
-        ERC20.transfer(_wallet, _amountSum);
+        transfer(_wallet, _amountSum);
         
          if (lockList[_wallet].length==0) listOfAddressesWithLockedFund.push(_wallet);
          uint256 amount = _amountSum/_forHowManyPeriods;
@@ -150,7 +159,6 @@ contract Lynkey is ERC20Burnable, Pausable, Ownable {
         require(_amount > 0, "amount must be larger than 0");
         require(_receiver != address(0), "cannot send to the zero address");
         require(_from != _receiver, "receiver cannot be the same as sender");
-        require(_amount <= allowance(_from, msg.sender));
         require(_amount <= getAvailableBalance(_from), "not enough enough fund to transfer");
         return ERC20.transferFrom(_from, _receiver, _amount);
     }
@@ -171,7 +179,7 @@ contract Lynkey is ERC20Burnable, Pausable, Ownable {
         require(msg.sender != _receiver, "receiver cannot be the same as sender");
         require(_amount <= getAvailableBalance(msg.sender), "not enough enough fund to transfer");
         
-	    ERC20._transfer(msg.sender,_receiver,_amount);
+	    ERC20.transfer(_receiver,_amount);
     	lockFund(_receiver, _amount, _releaseTime);
 		
         return true;
@@ -211,8 +219,11 @@ contract Lynkey is ERC20Burnable, Pausable, Ownable {
 	function getAvailableBalance(address lockedAddress) public view returns(uint256) {
 	    uint256 bal = balanceOf(lockedAddress);
 	    uint256 locked = getLockedAmount(lockedAddress);
+        if (bal <= locked) return 0;
 	    return bal-locked;
 	}
 
 	    
 }
+
+
