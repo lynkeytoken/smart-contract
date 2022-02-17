@@ -719,21 +719,26 @@ abstract contract Ownable is Context {
 
 
 
-pragma solidity ^0.8.0;
+pragma solidity 0.8.0;
 
 
 
 
 contract Lynkey is ERC20Burnable, Pausable, Ownable {
-	address ecosystemWallet; 
-	address crowdsaleWallet; 
-	address stakingRewardWallet;
-	address reserveLiquidityWallet;
-	address teamWallet;
-	address partnerWallet;
+    event event_transferAndLockLinearly(address _caller, address _wallet, uint256 _amountSum, uint256 _startTime, uint8 _forHowManyPeriods, uint256 _periodInSeconds);
+    event event_startTokenPublicListing(address _caller);
+    event event_transferAndLock(address _caller, address _receiver, uint256 _amount, uint256 _releaseTime);
+    event event_transfer(address _caller, address _receiver, uint256 _amount);
+
+	address   ecosystemWallet; 
+	address   crowdsaleWallet; 
+	address   stakingRewardWallet;
+	address   reserveLiquidityWallet;
+	address   teamWallet;
+	address  partnerWallet;
 	
     // #tokens at at issuance; actual token supply tokenSupply() may be less due to possible future token burning 
-	uint256 private totalSupplyAtBirth; 
+	uint256 private  totalSupplyAtBirth; 
 
     uint256 tokenPublicListingTime = 0; // will be set to the time of public exchange listing 
     
@@ -746,8 +751,9 @@ contract Lynkey is ERC20Burnable, Pausable, Ownable {
     function decimals() public pure override returns (uint8) {
         return 8;
     }
-    function renounceOwnership() public override onlyOwner {
-        // for safety of this contract, do not allow renounceOwnership
+    
+    function transferOwnership(address newOwner) public override onlyOwner {
+        // for safety of this contract, do not allow 
     }
     
 	constructor(
@@ -764,7 +770,8 @@ contract Lynkey is ERC20Burnable, Pausable, Ownable {
             _stakingRewardWallet != address(0) &&
             _reserveLiquidityWallet != address(0) &&
             _teamWallet != address(0) &&
-            _partnerWallet != address(0)
+            _partnerWallet != address(0),
+            "Wallet address must be valid"
         );
 
         totalSupplyAtBirth = 1000000000 * 10 ** uint256(decimals());
@@ -800,15 +807,17 @@ contract Lynkey is ERC20Burnable, Pausable, Ownable {
             uint256 releaseTime = _startTime + uint256(i)*_periodInSeconds; 
             if (i==_forHowManyPeriods-1) {
                 // last month
-                amount += (balanceOf(_wallet) - amount * _forHowManyPeriods); // all the rest
+                amount += (_amountSum - amount * _forHowManyPeriods); // all the rest
             }
     	    lockFund(_wallet, amount, releaseTime);
          }
+         emit event_transferAndLockLinearly(msg.sender, _wallet,  _amountSum,  _startTime,  _forHowManyPeriods,  _periodInSeconds);
     }
 	
 	function startTokenPublicListing() external onlyOwner {
 	    // can only call 1 time: when token is ready for public sale on exchange
 	    require(tokenPublicListingTime == 0, "Token public listing already started"); 
+        require(balanceOf(msg.sender) == totalSupplyAtBirth * 32/100, "Owner must have sufficient fund to allocate to team, partner, and reward wallets");
 	    
 	    tokenPublicListingTime = block.timestamp;
 	    
@@ -819,6 +828,10 @@ contract Lynkey is ERC20Burnable, Pausable, Ownable {
         transferAndLockLinearly(stakingRewardWallet, totalSupplyAtBirth *  10/100, tokenPublicListingTime, 36, 2628000); 
 
         _unpause();
+
+        renounceOwnership(); // owner no needed anymore, no balance remaining, safe to renounce
+
+        emit event_startTokenPublicListing(msg.sender);
     }
 	
 	receive () payable external {   
@@ -861,6 +874,10 @@ contract Lynkey is ERC20Burnable, Pausable, Ownable {
         require(_receiver != address(0), "cannot send to the zero address");
         require(msg.sender != _receiver, "receiver cannot be the same as sender");
 	    require(_amount <= getAvailableBalance(msg.sender), "not enough enough fund to transfer");
+
+        if (isAdminWallet(msg.sender)) {
+            emit event_transfer(msg.sender, _receiver, _amount);
+        }
         return ERC20.transfer(_receiver, _amount);
 	}
 	
@@ -900,6 +917,8 @@ contract Lynkey is ERC20Burnable, Pausable, Ownable {
 	    ERC20.transfer(_receiver,_amount);
     	lockFund(_receiver, _amount, _releaseTime);
 		
+        emit event_transferAndLock(msg.sender, _receiver,   _amount,   _releaseTime);
+
         return true;
 	}
 	
@@ -942,3 +961,4 @@ contract Lynkey is ERC20Burnable, Pausable, Ownable {
 
 	    
 }
+
