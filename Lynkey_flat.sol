@@ -1,10 +1,12 @@
+// SPDX-License-Identifier: MIT
+
 
 // File: @openzeppelin/contracts/token/ERC20/IERC20.sol
 
 
 // OpenZeppelin Contracts v4.4.1 (token/ERC20/IERC20.sol)
 
-pragma solidity ^0.8.0;
+pragma solidity 0.8.7;
 
 /**
  * @dev Interface of the ERC20 standard as defined in the EIP.
@@ -89,7 +91,7 @@ interface IERC20 {
 
 // OpenZeppelin Contracts v4.4.1 (token/ERC20/extensions/IERC20Metadata.sol)
 
-pragma solidity ^0.8.0;
+pragma solidity 0.8.7;
 
 
 /**
@@ -119,7 +121,7 @@ interface IERC20Metadata is IERC20 {
 
 // OpenZeppelin Contracts v4.4.1 (utils/Context.sol)
 
-pragma solidity ^0.8.0;
+pragma solidity 0.8.7;
 
 /**
  * @dev Provides information about the current execution context, including the
@@ -146,7 +148,7 @@ abstract contract Context {
 
 // OpenZeppelin Contracts v4.4.1 (security/Pausable.sol)
 
-pragma solidity ^0.8.0;
+pragma solidity 0.8.7;
 
 
 /**
@@ -239,7 +241,7 @@ abstract contract Pausable is Context {
 
 // OpenZeppelin Contracts v4.4.1 (token/ERC20/ERC20.sol)
 
-pragma solidity ^0.8.0;
+pragma solidity 0.8.7;
 
 
 
@@ -597,7 +599,7 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
 
 // OpenZeppelin Contracts v4.4.1 (token/ERC20/extensions/ERC20Burnable.sol)
 
-pragma solidity ^0.8.0;
+pragma solidity 0.8.7;
 
 
 
@@ -640,102 +642,24 @@ abstract contract ERC20Burnable is Context, ERC20 {
 // File: @openzeppelin/contracts/access/Ownable.sol
 
 
-// OpenZeppelin Contracts v4.4.1 (access/Ownable.sol)
-
-pragma solidity ^0.8.0;
-
-
-/**
- * @dev Contract module which provides a basic access control mechanism, where
- * there is an account (an owner) that can be granted exclusive access to
- * specific functions.
- *
- * By default, the owner account will be the one that deploys the contract. This
- * can later be changed with {transferOwnership}.
- *
- * This module is used through inheritance. It will make available the modifier
- * `onlyOwner`, which can be applied to your functions to restrict their use to
- * the owner.
- */
-abstract contract Ownable is Context {
-    address private _owner;
-
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
-
-    /**
-     * @dev Initializes the contract setting the deployer as the initial owner.
-     */
-    constructor() {
-        _transferOwnership(_msgSender());
-    }
-
-    /**
-     * @dev Returns the address of the current owner.
-     */
-    function owner() public view virtual returns (address) {
-        return _owner;
-    }
-
-    /**
-     * @dev Throws if called by any account other than the owner.
-     */
-    modifier onlyOwner() {
-        require(owner() == _msgSender(), "Ownable: caller is not the owner");
-        _;
-    }
-
-    /**
-     * @dev Leaves the contract without owner. It will not be possible to call
-     * `onlyOwner` functions anymore. Can only be called by the current owner.
-     *
-     * NOTE: Renouncing ownership will leave the contract without an owner,
-     * thereby removing any functionality that is only available to the owner.
-     */
-    function renounceOwnership() public virtual onlyOwner {
-        _transferOwnership(address(0));
-    }
-
-    /**
-     * @dev Transfers ownership of the contract to a new account (`newOwner`).
-     * Can only be called by the current owner.
-     */
-    function transferOwnership(address newOwner) public virtual onlyOwner {
-        require(newOwner != address(0), "Ownable: new owner is the zero address");
-        _transferOwnership(newOwner);
-    }
-
-    /**
-     * @dev Transfers ownership of the contract to a new account (`newOwner`).
-     * Internal function without access restriction.
-     */
-    function _transferOwnership(address newOwner) internal virtual {
-        address oldOwner = _owner;
-        _owner = newOwner;
-        emit OwnershipTransferred(oldOwner, newOwner);
-    }
-}
-
 // File: contracts/lynkey.sol
+pragma solidity 0.8.7;
 
 
-
-pragma solidity 0.8.0;
-
-
-
-
-contract Lynkey is ERC20Burnable, Pausable, Ownable {
+contract Lynkey is ERC20Burnable, Pausable {
     event event_transferAndLockLinearly(address _caller, address _wallet, uint256 _amountSum, uint256 _startTime, uint8 _forHowManyPeriods, uint256 _periodInSeconds);
     event event_startTokenPublicListing(address _caller);
     event event_transferAndLock(address _caller, address _receiver, uint256 _amount, uint256 _releaseTime);
     event event_transfer(address _caller, address _receiver, uint256 _amount);
 
-	address   ecosystemWallet; 
-	address   crowdsaleWallet; 
-	address   stakingRewardWallet;
-	address   reserveLiquidityWallet;
-	address   teamWallet;
-	address  partnerWallet;
+	address private _owner;
+    
+    address ecosystemWallet; 
+	address crowdsaleWallet; 
+	address stakingRewardWallet;
+	address reserveLiquidityWallet;
+	address teamWallet;
+	address partnerWallet;
 	
     // #tokens at at issuance; actual token supply tokenSupply() may be less due to possible future token burning 
 	uint256 private  totalSupplyAtBirth; 
@@ -752,9 +676,14 @@ contract Lynkey is ERC20Burnable, Pausable, Ownable {
         return 8;
     }
     
-    function transferOwnership(address newOwner) public override onlyOwner {
-        // for safety of this contract, do not allow 
+    /**
+     * @dev Throws if called by any account other than the owner.
+     */
+    modifier onlyOwner() {
+        require(_owner == _msgSender(), "Ownable: caller is not the owner");
+        _;
     }
+
     
 	constructor(
 	    address _crowdsaleWallet,
@@ -776,7 +705,8 @@ contract Lynkey is ERC20Burnable, Pausable, Ownable {
 
         totalSupplyAtBirth = 1000000000 * 10 ** uint256(decimals());
 
-	    _mint(owner(), totalSupplyAtBirth); 
+        _owner = msg.sender;
+	    _mint(_owner, totalSupplyAtBirth); 
        
         crowdsaleWallet = _crowdsaleWallet;
 	    ecosystemWallet = _ecosystemWallet;
@@ -791,6 +721,13 @@ contract Lynkey is ERC20Burnable, Pausable, Ownable {
         transferAndLockLinearly(reserveLiquidityWallet, totalSupplyAtBirth  * 23/100, block.timestamp, 36, 2628000); // releasing equally for the next 36 monthly periods (3 years)
         
         _pause();
+    }
+    
+    /**
+     * @dev Returns the address of the current owner.
+     */
+    function owner() public view returns (address) {
+        return _owner;
     }
     
     /**
@@ -829,7 +766,8 @@ contract Lynkey is ERC20Burnable, Pausable, Ownable {
 
         _unpause();
 
-        renounceOwnership(); // owner no needed anymore, no balance remaining, safe to renounce
+        // renounceOwnership: owner no needed anymore, no balance remaining, safe to renounce
+        _owner = address(0);
 
         emit event_startTokenPublicListing(msg.sender);
     }
