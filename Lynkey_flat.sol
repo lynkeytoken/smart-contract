@@ -143,98 +143,6 @@ abstract contract Context {
     }
 }
 
-// File: @openzeppelin/contracts/security/Pausable.sol
-
-
-// OpenZeppelin Contracts v4.4.1 (security/Pausable.sol)
-
-pragma solidity 0.8.7;
-
-
-/**
- * @dev Contract module which allows children to implement an emergency stop
- * mechanism that can be triggered by an authorized account.
- *
- * This module is used through inheritance. It will make available the
- * modifiers `whenNotPaused` and `whenPaused`, which can be applied to
- * the functions of your contract. Note that they will not be pausable by
- * simply including this module, only once the modifiers are put in place.
- */
-abstract contract Pausable is Context {
-    /**
-     * @dev Emitted when the pause is triggered by `account`.
-     */
-    event Paused(address account);
-
-    /**
-     * @dev Emitted when the pause is lifted by `account`.
-     */
-    event Unpaused(address account);
-
-    bool private _paused;
-
-    /**
-     * @dev Initializes the contract in unpaused state.
-     */
-    constructor() {
-        _paused = false;
-    }
-
-    /**
-     * @dev Returns true if the contract is paused, and false otherwise.
-     */
-    function paused() public view virtual returns (bool) {
-        return _paused;
-    }
-
-    /**
-     * @dev Modifier to make a function callable only when the contract is not paused.
-     *
-     * Requirements:
-     *
-     * - The contract must not be paused.
-     */
-    modifier whenNotPaused() {
-        require(!paused(), "Pausable: paused");
-        _;
-    }
-
-    /**
-     * @dev Modifier to make a function callable only when the contract is paused.
-     *
-     * Requirements:
-     *
-     * - The contract must be paused.
-     */
-    modifier whenPaused() {
-        require(paused(), "Pausable: not paused");
-        _;
-    }
-
-    /**
-     * @dev Triggers stopped state.
-     *
-     * Requirements:
-     *
-     * - The contract must not be paused.
-     */
-    function _pause() internal virtual whenNotPaused {
-        _paused = true;
-        emit Paused(_msgSender());
-    }
-
-    /**
-     * @dev Returns to normal state.
-     *
-     * Requirements:
-     *
-     * - The contract must be paused.
-     */
-    function _unpause() internal virtual whenPaused {
-        _paused = false;
-        emit Unpaused(_msgSender());
-    }
-}
 
 // File: @openzeppelin/contracts/token/ERC20/ERC20.sol
 
@@ -646,14 +554,13 @@ abstract contract ERC20Burnable is Context, ERC20 {
 pragma solidity 0.8.7;
 
 
-contract Lynkey is ERC20Burnable, Pausable {
-    event event_transferAndLockLinearly(address _caller, address _wallet, uint256 _amountSum, uint256 _startTime, uint8 _forHowManyPeriods, uint256 _periodInSeconds);
-    event event_startTokenPublicListing(address _caller);
+contract Lynkey is ERC20Burnable {
+    event event_lockSystemWallet(address _caller, address _wallet, uint256 _amountSum, uint256 _startTime, uint8 _forHowManyPeriods, uint256 _periodInSeconds);
     event event_transferAndLock(address _caller, address _receiver, uint256 _amount, uint256 _releaseTime);
-    event event_transfer(address _caller, address _receiver, uint256 _amount);
-
-	address private _owner;
+    event event_transfer_by_admin(address _caller, address _receiver, uint256 _amount);
     
+    address private _owner;
+
     address ecosystemWallet; 
 	address crowdsaleWallet; 
 	address stakingRewardWallet;
@@ -662,9 +569,7 @@ contract Lynkey is ERC20Burnable, Pausable {
 	address partnerWallet;
 	
     // #tokens at at issuance; actual token supply tokenSupply() may be less due to possible future token burning 
-	uint256 private  totalSupplyAtBirth; 
-
-    uint256 tokenPublicListingTime = 0; // will be set to the time of public exchange listing 
+	uint256 private totalSupplyAtBirth; 
     
     struct LockItem {
         uint256  releaseTime;
@@ -676,15 +581,6 @@ contract Lynkey is ERC20Burnable, Pausable {
         return 8;
     }
     
-    /**
-     * @dev Throws if called by any account other than the owner.
-     */
-    modifier onlyOwner() {
-        require(_owner == _msgSender(), "Ownable: caller is not the owner");
-        _;
-    }
-
-    
 	constructor(
 	    address _crowdsaleWallet,
 	    address _ecosystemWallet,
@@ -692,7 +588,8 @@ contract Lynkey is ERC20Burnable, Pausable {
 	    address _reserveLiquidityWallet,
 	    address _teamWallet,
 	    address _partnerWallet) ERC20("Lynkey", "LYNK") {  
-	        
+
+        // all these system addresses will be multi-sig when deploying the contract  
         require(
             _crowdsaleWallet != address(0) && 
             _ecosystemWallet != address(0) &&
@@ -703,10 +600,6 @@ contract Lynkey is ERC20Burnable, Pausable {
             "Wallet address must be valid"
         );
 
-        totalSupplyAtBirth = 1000000000 * 10 ** uint256(decimals());
-
-        _owner = msg.sender;
-	    _mint(_owner, totalSupplyAtBirth); 
        
         crowdsaleWallet = _crowdsaleWallet;
 	    ecosystemWallet = _ecosystemWallet;
@@ -715,61 +608,51 @@ contract Lynkey is ERC20Burnable, Pausable {
 	    teamWallet = _teamWallet;
 	    partnerWallet = _partnerWallet;
 	        
-        ERC20.transfer(crowdsaleWallet, totalSupplyAtBirth  * 25/100); //25% allocation
+        _owner = msg.sender;
+
+        totalSupplyAtBirth = 1000000000 * 10 ** uint256(decimals());
+
+        // allocate tokens to the system main wallets according to the Token Allocation
+        _mint(crowdsaleWallet, totalSupplyAtBirth  * 25/100); // 25% allocation
+        _mint(ecosystemWallet,  totalSupplyAtBirth * 20/100); // 20%
+        _mint(reserveLiquidityWallet,  totalSupplyAtBirth * 23/100); // 23%
+        _mint(teamWallet,  totalSupplyAtBirth * 12/100); // 12%
+        _mint(partnerWallet,  totalSupplyAtBirth * 10/100); // 10%
+        _mint(stakingRewardWallet,  totalSupplyAtBirth * 10/100); // 10%
         
-        transferAndLockLinearly(ecosystemWallet,  totalSupplyAtBirth * 20/100, block.timestamp, 36, 2628000); // releasing equally for the next 36 monthly periods (3 years)
-        transferAndLockLinearly(reserveLiquidityWallet, totalSupplyAtBirth  * 23/100, block.timestamp, 36, 2628000); // releasing equally for the next 36 monthly periods (3 years)
-        
-        _pause();
+        uint256 starttime = block.timestamp;
+        // releasing linearly quarterly for the next 12 quarterly periods (3 years)
+        lockSystemWallet(ecosystemWallet,  totalSupplyAtBirth * 20/100, starttime, 12, 7884000); 
+        lockSystemWallet(reserveLiquidityWallet, totalSupplyAtBirth  * 23/100, starttime, 12, 7884000); 
+        lockSystemWallet(teamWallet, totalSupplyAtBirth  * 12/100, starttime, 12, 7884000); 
+        lockSystemWallet(partnerWallet, totalSupplyAtBirth *  10/100, starttime, 12, 7884000); 
+        lockSystemWallet(stakingRewardWallet, totalSupplyAtBirth *  10/100, starttime, 12, 7884000); 
+
     }
-    
+
     /**
-     * @dev Returns the address of the current owner.
+     * @dev allocate tokens and lock to release periodically
+     * allocate tokens from owner to system wallets when smart contract is deployed
      */
-    function owner() public view returns (address) {
-        return _owner;
-    }
-    
-    /**
-     * @dev transfer fund and lock to release periodically
-     */
-    function transferAndLockLinearly(address _wallet, uint256 _amountSum, uint256 _startTime, uint8 _forHowManyPeriods, uint256 _periodInSeconds) public {
-        require(isAdminWallet(msg.sender), "No permission to transfer and lock. Sender must be an Admin address");
-        
-        transfer(_wallet, _amountSum);
-        
-         uint256 amount = _amountSum/_forHowManyPeriods;
-         
-         for(uint8 i = 0; i< _forHowManyPeriods; i++) {
+    function lockSystemWallet(address _wallet, uint256 _amountSum, uint256 _startTime, uint8 _forHowManyPeriods, uint256 _periodInSeconds) private {        
+        uint256 amount = _amountSum/_forHowManyPeriods;
+        for(uint8 i = 0; i< _forHowManyPeriods; i++) {
             uint256 releaseTime = _startTime + uint256(i)*_periodInSeconds; 
             if (i==_forHowManyPeriods-1) {
-                // last month
+                // last month includes all the rest
                 amount += (_amountSum - amount * _forHowManyPeriods); // all the rest
             }
     	    lockFund(_wallet, amount, releaseTime);
          }
-         emit event_transferAndLockLinearly(msg.sender, _wallet,  _amountSum,  _startTime,  _forHowManyPeriods,  _periodInSeconds);
+         emit event_lockSystemWallet(msg.sender, _wallet,  _amountSum,  _startTime,  _forHowManyPeriods,  _periodInSeconds);
     }
+
 	
-	function startTokenPublicListing() external onlyOwner {
-	    // can only call 1 time: when token is ready for public sale on exchange
-	    require(tokenPublicListingTime == 0, "Token public listing already started"); 
-        require(balanceOf(msg.sender) == totalSupplyAtBirth * 32/100, "Owner must have sufficient fund to allocate to team, partner, and reward wallets");
-	    
-	    tokenPublicListingTime = block.timestamp;
-	    
-	    // now is the time to transfer fund to Team, Partner, Reward Wallets
-	    // but lock these wallets, and only release monthly equally for the next 36 30-day periods (3 years)
-        transferAndLockLinearly(teamWallet, totalSupplyAtBirth  * 12/100, tokenPublicListingTime, 36, 2628000); 
-        transferAndLockLinearly(partnerWallet, totalSupplyAtBirth *  10/100, tokenPublicListingTime, 36, 2628000); 
-        transferAndLockLinearly(stakingRewardWallet, totalSupplyAtBirth *  10/100, tokenPublicListingTime, 36, 2628000); 
-
-        _unpause();
-
-        // renounceOwnership: owner no needed anymore, no balance remaining, safe to renounce
-        _owner = address(0);
-
-        emit event_startTokenPublicListing(msg.sender);
+	/**
+     * @dev Returns the address of the current owner.
+     */
+    function owner() external view returns (address) {
+        return _owner;
     }
 	
 	receive () payable external {   
@@ -793,8 +676,7 @@ contract Lynkey is ERC20Burnable, Pausable {
             _addr == stakingRewardWallet ||
             _addr == reserveLiquidityWallet ||
             _addr == teamWallet ||
-            _addr == partnerWallet ||
-            _addr == owner()
+            _addr == partnerWallet 
         );
     }
     
@@ -807,14 +689,13 @@ contract Lynkey is ERC20Burnable, Pausable {
      */
      
 	function transfer(address _receiver, uint256 _amount) public override returns (bool) {
-	    require(!paused() || isAdminWallet(msg.sender), "cannot transfer during this time");
 	    require(_amount > 0, "amount must be larger than 0");
         require(_receiver != address(0), "cannot send to the zero address");
         require(msg.sender != _receiver, "receiver cannot be the same as sender");
 	    require(_amount <= getAvailableBalance(msg.sender), "not enough enough fund to transfer");
 
         if (isAdminWallet(msg.sender)) {
-            emit event_transfer(msg.sender, _receiver, _amount);
+            emit event_transfer_by_admin(msg.sender, _receiver, _amount);
         }
         return ERC20.transfer(_receiver, _amount);
 	}
@@ -828,7 +709,6 @@ contract Lynkey is ERC20Burnable, Pausable {
      * @param _amount The amount to be transferred.
      */
     function transferFrom(address _from, address _receiver, uint256 _amount) public override  returns (bool) {
-        require(!paused() || isAdminWallet(msg.sender), "cannot transfer during this time");
         require(_amount > 0, "amount must be larger than 0");
         require(_receiver != address(0), "cannot send to the zero address");
         require(_from != _receiver, "receiver cannot be the same as sender");
@@ -838,15 +718,15 @@ contract Lynkey is ERC20Burnable, Pausable {
 
     /**
      * @dev transfer to a given address a given amount and lock this fund until a given time
-     * used for sending fund to team members, partners, or for owner to lock service fund over time
+     * used by system wallets for sending fund to team members, partners, etc who needs to be locked for certain time
      * @return the bool true if success.
      * @param _receiver The address to transfer to.
      * @param _amount The amount to transfer.
      * @param _releaseTime The date to release token.
      */
 	
-	function transferAndLock(address _receiver, uint256 _amount, uint256 _releaseTime) public  returns (bool) {
-	    require(isAdminWallet(msg.sender), "no permission to transfer and lock");
+	function transferAndLock(address _receiver, uint256 _amount, uint256 _releaseTime) external  returns (bool) {
+	    require(isAdminWallet(msg.sender), "Only system wallets can have permission to transfer and lock");
 	    require(_amount > 0, "amount must be larger than 0");
         require(_receiver != address(0), "cannot send to the zero address");
         require(msg.sender != _receiver, "receiver cannot be the same as sender");
@@ -859,7 +739,6 @@ contract Lynkey is ERC20Burnable, Pausable {
 
         return true;
 	}
-	
 	
 	
 	/**
