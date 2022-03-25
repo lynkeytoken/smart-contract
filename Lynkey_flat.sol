@@ -581,32 +581,16 @@ contract Lynkey is ERC20Burnable {
         return 8;
     }
     
-	constructor(
-	    address _crowdsaleWallet,
-	    address _ecosystemWallet,
-	    address _stakingRewardWallet,
-	    address _reserveLiquidityWallet,
-	    address _teamWallet,
-	    address _partnerWallet) ERC20("Lynkey", "LYNK") {  
+	constructor() ERC20("Lynkey", "LYNK") {  
 
-        // all these system addresses will be multi-sig when deploying the contract  
-        require(
-            _crowdsaleWallet != address(0) && 
-            _ecosystemWallet != address(0) &&
-            _stakingRewardWallet != address(0) &&
-            _reserveLiquidityWallet != address(0) &&
-            _teamWallet != address(0) &&
-            _partnerWallet != address(0),
-            "Wallet address must be valid"
-        );
-
-       
-        crowdsaleWallet = _crowdsaleWallet;
-	    ecosystemWallet = _ecosystemWallet;
-	    stakingRewardWallet = _stakingRewardWallet;
-	    reserveLiquidityWallet = _reserveLiquidityWallet;
-	    teamWallet = _teamWallet;
-	    partnerWallet = _partnerWallet;
+        // all these 6 system addresses are Gnosis multi-sig:  
+        
+        crowdsaleWallet = 0x07188d46b305b8183F0c7FA204a7bcbB6C2E59e9;
+	    ecosystemWallet = 0x9968c39f7D8ea29648203A6043CA1eef51c4e509;
+	    stakingRewardWallet = 0xfee25971dc356acE41fF004Fd2c8661A5B87C177;
+	    reserveLiquidityWallet = 0x261f04b695361672210D6F02AD0dC0a371Bb4b1C;
+	    teamWallet = 0x4eAC98E2f866830440b7E5Fa4e3e78ce0a8516d9;
+	    partnerWallet = 0x611A909aB6218046872a0438E29f80d067A42d42;
 	        
         _owner = msg.sender;
 
